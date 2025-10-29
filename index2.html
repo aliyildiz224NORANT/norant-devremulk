@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <title>NORANT Devremülk Satış Paneli</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#fff; --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#2563eb;
+      --soldBg:#ffe8e6; --soldText:#991b1b; --maintBg:#fff7d6; --maintText:#78350f;
+      --kpi:#f8fafc; --ok:#16a34a; --warn:#f59e0b; --chip:#eef2ff;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .wrap{padding:20px;max-width:1400px;margin:0 auto}
+    .head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between;margin-bottom:8px}
+    .title{font-size:24px;font-weight:800}
+    .subtitle{color:var(--muted);font-weight:600}
+    .buttons{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .saveState{font-size:12px;color:var(--muted)}
+    .saveState.saving{color:var(--warn)}
+    .saveState.saved{color:var(--ok)}
+    button,.btn{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer}
+    .btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .kpis{display:grid;grid-template-columns:repeat(5, minmax(220px,1fr));gap:10px;margin:12px 0 10px}
+    .kpi{background:var(--kpi);padding:14px;border-radius:12px}
+    .kpi .cap{font-size:12px;color:var(--muted)}
+    .kpi .val{font-size:18px;font-weight:800}
+    .villaKpis{display:grid;grid-template-columns:repeat(6, minmax(170px,1fr));gap:8px;margin:2px 0 16px}
+    .vk{background:#f9fafb;border:1px solid var(--line);padding:10px;border-radius:12px}
+    .vk .cap{font-size:12px;color:var(--muted)}
+    .vk .val{font-size:16px;font-weight:800}
+    .legend{font-size:12px;color:var(--muted)}
+    .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
+    .search{padding:10px;border:1px solid var(--line);border-radius:10px;min-width:340px}
+    .tableWrap{border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:56vh}
+    table{border-collapse:separate;border-spacing:0;min-width:max(1200px,100%)}
+    thead th{position:sticky;top:0;background:#f3f4f6;border-bottom:1px solid var(--line);z-index:2;font-weight:700}
+    th,td{border-bottom:1px solid var(--line);padding:8px 10px;font-size:13px;white-space:nowrap;vertical-align:top}
+    tbody td:first-child, thead th:first-child{position:sticky;left:0;z-index:1;background:#f8fafc;font-weight:700}
+    .cell{border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;display:inline-block;cursor:pointer;user-select:none}
+    .cell[draggable="true"]{cursor:grab}
+    .cell.dragSrc{outline:2px dashed var(--accent)}
+    .cell.dropOk{outline:2px solid var(--ok)}
+    .sold{background:var(--soldBg);color:var(--soldText);border-color:#fecaca}
+    .maint{background:var(--maintBg);color:var(--maintText)}
+    .note{font-size:11px;color:#475569;display:block;margin-top:4px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .right{margin-left:auto}
+    dialog::backdrop{background:rgba(0,0,0,.25)}
+    dialog{border:1px solid var(--line);border-radius:12px;padding:0;max-width:720px;width:92%}
+    .dlg-head{padding:14px 16px;border-bottom:1px solid var(--line);font-weight:800;display:flex;justify-content:space-between;align-items:center}
+    .dlg-tabs{display:flex;gap:6px}
+    .tab{padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-size:12px;cursor:pointer;background:#fff}
+    .tab.active{background:var(--chip);border-color:#c7d2fe}
+    .dlg-body{padding:16px;display:none}
+    .dlg-body.active{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .dlg-row{display:flex;flex-direction:column;gap:6px}
+    .dlg-row input,.dlg-row textarea,.dlg-row select{padding:10px;border:1px solid var(--line);border-radius:10px;font-size:14px}
+    .dlg-foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid var(--line)}
+    .pill{display:inline-block;padding:4px 8px;border:1px solid var(--line);border-radius:999px;font-size:12px}
+    .hint{font-size:12px;color:var(--muted)}
+    .results{margin:10px 0 14px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+    .resHead{background:#f8fafc;padding:10px 12px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+    .resList{max-height:22vh;overflow:auto}
+    .resItem{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-top:1px solid var(--line)}
+    .resMeta{font-size:12px;color:#475569}
+    .goBtn{padding:6px 10px;border:1px solid var(--accent);color:#fff;background:var(--accent);border-radius:8px;cursor:pointer;font-weight:700}
+    @keyframes flash { 0%{box-shadow:0 0 0 0 rgba(37,99,235,.8)} 100%{box-shadow:0 0 0 8px rgba(37,99,235,0)} }
+    .flash{animation:flash .9s ease-out 0s 2}
+    .ctx{position:absolute;background:#fff;border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.15);border-radius:10px;padding:6px 0;z-index:9999;display:none}
+    .ctx .i{padding:8px 14px;cursor:pointer;white-space:nowrap;font-size:14px}
+    .ctx .i:hover{background:#f3f4f6}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div>
+      <div class="title">NORANT Devremülk Satış Paneli</div>
+      <div class="subtitle">Küçük yatırımlarla büyük getiriler</div>
+    </div>
+    <div class="buttons">
+      <span id="saveState" class="saveState">Kaydedildi</span>
+      <button id="exportCsv" class="btn">Excel’e aktar (CSV)</button>
+      <button id="backupJson" class="btn">Yedek indir (JSON)</button>
+      <label class="btn" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+        Yedek yükle <input id="restoreJson" type="file" accept="application/json" style="display:none" />
+      </label>
+      <button id="resetAll" class="btn">Tümünü sıfırla</button>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+  <div class="villaKpis" id="villaKpis"></div>
+
+  <div class="toolbar">
+    <input id="search" class="search" autocomplete="off" placeholder="Tarih (örn: 13-20 Haziran) veya müşteri/telefon/not/villa ara" />
+    <span class="legend">Renkler: <span class="cell maint">Bakım</span> &nbsp; <span class="cell sold">Satıldı</span></span>
+    <span class="right pill">Bakım haftaları kilitlidir</span>
+  </div>
+
+  <div id="results" class="results" style="display:none">
+    <div class="resHead">
+      <span>Arama sonuçları</span>
+      <span id="resCount" class="resMeta">0 sonuç</span>
+    </div>
+    <div id="resList" class="resList"></div>
+  </div>
+
+  <div class="hint">İpucu: Hücreyi başka tarihe <b>sürükleyip bırak</b> → <u>kopyalar</u>. <b>Alt</b> tuşu basılıyken bırak → <u>taşır</u>. Sağ tık menüsüyle hızlı işlemler yapabilirsin.</div>
+
+  <div class="tableWrap">
+    <table id="grid">
+      <thead id="thead"></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Düzenleme Diyaloğu -->
+<dialog id="editDlg">
+  <div class="dlg-head">
+    <div id="dlgTitle">Düzenle</div>
+    <div class="dlg-tabs">
+      <button class="tab active" data-tab="sale">Satış Detayı</button>
+      <button class="tab" data-tab="pay">Ödeme Planı</button>
+    </div>
+  </div>
+
+  <!-- Satış Detayı -->
+  <div class="dlg-body active" id="tab-sale">
+    <div class="dlg-row">
+      <label>Durum</label>
+      <select id="fStatus">
+        <option value="Boş">Boş</option>
+        <option value="Satıldı">Satıldı</option>
+      </select>
+    </div>
+    <div class="dlg-row">
+      <label>Müşteri Adı</label>
+      <input id="fCustomer" placeholder="Ad Soyad" />
+    </div>
+    <div class="dlg-row">
+      <label>Telefon</label>
+      <input id="fPhone" placeholder="05xx xxx xx xx" />
+    </div>
+    <div class="dlg-row">
+      <label>Liste Fiyatı (TL)</label>
+      <input id="fList" type="number" min="0" step="100" placeholder="0" />
+    </div>
+    <div class="dlg-row">
+      <label>İndirim (%)</label>
+      <input id="fDisc" type="number" min="0" max="100" step="1" placeholder="0" />
+    </div>
+    <div class="dlg-row">
+      <label>Net Tutar (TL)</label>
+      <input id="fNet" type="number" min="0" step="100" placeholder="0" disabled />
+    </div>
+    <div class="dlg-row" style="grid-column:1/3">
+      <label>Not</label>
+      <textarea id="fNote" rows="3" placeholder="Not..."></textarea>
+    </div>
+    <div class="dlg-row" style="grid-column:1/3">
+      <span class="hint">Formül: Net = Liste × (1 − İndirim/100). Kâr = Liste × 0.60. KDV = Net × 0.18. GV = Kâr × 0.20.</span>
+    </div>
+  </div>
+
+  <!-- Ödeme Planı -->
+  <div class="dlg-body" id="tab-pay">
+    <div class="dlg-row">
+      <label>Peşinat (%)</label>
+      <input id="pDownPct" type="number" min="0" max="100" step="1" placeholder="50" />
+    </div>
+    <div class="dlg-row">
+      <label>Taksit Sayısı (Ay)</label>
+      <input id="pInst" type="number" min="0" step="1" placeholder="12" />
+    </div>
+    <div class="dlg-row">
+      <label>Peşinat Tutarı (TL)</label>
+      <input id="pDownAmt" type="number" min="0" step="100" disabled />
+    </div>
+    <div class="dlg-row">
+      <label>Aylık Taksit (TL)</label>
+      <input id="pMonthly" type="number" min="0" step="100" disabled />
+    </div>
+    <div class="dlg-row">
+      <label>Ödenen Miktar (TL)</label>
+      <input id="pPaid" type="number" min="0" step="100" placeholder="0" />
+    </div>
+    <div class="dlg-row">
+      <label>Kalan Borç (TL)</label>
+      <input id="pRemain" type="number" min="0" step="100" disabled />
+    </div>
+    <div class="dlg-row" style="grid-column:1/3">
+      <label>Ödeme Durumu</label>
+      <input id="pStatus" disabled />
+    </div>
+    <div class="dlg-row" style="grid-column:1/3">
+      <span class="hint">Peşinat ve taksit sayısını dilediğin gibi değiştir; tutarlar otomatik hesaplanır.</span>
+    </div>
+  </div>
+
+  <div class="dlg-foot">
+    <button id="dlgCancel" class="btn">İptal</button>
+    <button id="dlgSave" class="btn btn-primary">Kaydet</button>
+  </div>
+</dialog>
+
+<!-- Sağ tık menüsü -->
+<div id="ctx" class="ctx"></div>
+
+<script>
+/** ===== Sabitler ===== */
+const WEEKS = [
+ "12-19 Aralık","19-26 Aralık","26-3 Ocak","3-10 Ocak","10-17 Ocak","17-24 Ocak",
+ "24-31 Ocak","31-7 Şubat","7-14 Şubat","14-21 Şubat","21-28 Şubat","28-7 Mart","7-14 Mart",
+ "14-21 Mart","21-28 Mart","28-4 Nisan","4-11 Nisan","11-18 Nisan","18-25 Nisan",
+ "25-2 Mayıs","2-9 Mayıs","9-16 Mayıs","16-23 Mayıs","23-30 Mayıs","30-6 Haziran","6-13 Haziran",
+ "13-20 Haziran","20-27 Haziran","27-4 Temmuz","4-11 Temmuz","11-18 Temmuz","18-25 Temmuz",
+ "25-1 Ağustos","1-8 Ağustos","8-15 Ağustos","15-22 Ağustos","22-29 Ağustos","29-5 Eylül","5-12 Eylül",
+ "12-19 Eylül","19-26 Eylül","26-3 Ekim","3-10 Ekim","10-17 Ekim","17-24 Ekim",
+ "24-31 Ekim","31-7 Kasım","7-14 Kasım","14-21 Kasım","21-28 Kasım","28-5 Aralık","5-12 Aralık"
+];
+const MAINTENANCE = new Set(["14-21 Mart","21-28 Mart","12-19 Eylül","19-26 Eylül"]);
+const VILLAS = [
+  { name: "Ihlamur 1", type: "1+1", group: "Ihlamur" },
+  { name: "Ihlamur 2", type: "1+1", group: "Ihlamur" },
+  { name: "Zeytin 1", type: "2+1", group: "Zeytin" },
+  { name: "Zeytin 2", type: "2+1", group: "Zeytin" },
+  { name: "Zambak 1", type: "3+1", group: "Zambak" },
+  { name: "Zambak 2", type: "3+1", group: "Zambak" },
+];
+
+/** ==== Kâr & Vergi Oranları ==== */
+const KAR_ORAN   = 0.60; // Liste fiyatının %60'ı
+const KDV_ORAN   = 0.18; // Net satış üzerinden %18
+const GV_ORAN    = 0.20; // Kâr üzerinden %20 (gelir vergisi)
+
+/** ===== KALICI ANAHTAR + ESKİ VERİ İÇE AKTARMA ===== */
+const STORAGE_KEY = "norant-satis-data"; // BUNU DEĞİŞTİRME
+const OLD_KEYS = [
+  "higy-desktop-grid-v1","higy-desktop-grid-v2","higy-desktop-grid-v3","higy-desktop-grid-v4",
+  "higy-sales-vanilla-v1","higy-sales-mobile-v1","higy-satis-data"
+];
+
+let STATE = null;  // STATE[villa][week] = {status,list,disc,net,customer,phone,note, payment:{downPct,inst,paid}}
+let FILTER = "";
+let saveTimer = null;
+const saveLabel = document.getElementById("saveState");
+
+/** ===== Yardımcılar ===== */
+function emptyRow(){
+  return {
+    status:"Boş", list:0, disc:0, net:0, customer:"", phone:"", note:"",
+    payment: { downPct:50, inst:12, paid:0 }
+  };
+}
+function buildEmptyState(){
+  const obj = {};
+  for(const v of VILLAS){
+    obj[v.name] = {};
+    for(const w of WEEKS) obj[v.name][w] = emptyRow();
+  }
+  return obj;
+}
+function migrateIfNeeded(s){
+  for(const v of VILLAS){
+    if(!s[v.name]) s[v.name] = {};
+    for(const w of WEEKS){
+      let cur = s[v.name][w];
+      if(typeof cur === "string"){ cur = { status: cur }; }
+      cur = { ...emptyRow(), ...(cur||{}) };
+      if(!cur.payment) cur.payment = { downPct:50, inst:12, paid:0 };
+      if(typeof cur.payment.downPct!=="number") cur.payment.downPct = 50;
+      if(typeof cur.payment.inst!=="number") cur.payment.inst = 12;
+      if(typeof cur.payment.paid!=="number") cur.payment.paid = 0;
+      s[v.name][w] = cur;
+    }
+  }
+  return s;
+}
+function markSaving(){ saveLabel.textContent="Kaydediliyor…"; saveLabel.classList.add("saving"); saveLabel.classList.remove("saved"); }
+function markSaved(){ saveLabel.textContent="Kaydedildi"; saveLabel.classList.remove("saving"); saveLabel.classList.add("saved"); }
+function scheduleSave(){
+  markSaving();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=> {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE)); }
+    catch(e){ alert("Kayıt sırasında hata: " + e); }
+    markSaved();
+  }, 250);
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw){ STATE = migrateIfNeeded(JSON.parse(raw)); return; }
+    for(const k of OLD_KEYS){
+      const oldRaw = localStorage.getItem(k);
+      if (oldRaw){
+        STATE = migrateIfNeeded(JSON.parse(oldRaw));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
+        return;
+      }
+    }
+    STATE = buildEmptyState();
+  }catch{ STATE = buildEmptyState(); }
+}
+function calcNet(list, disc){
+  const l = Number(list||0), d = Number(disc||0);
+  const n = Math.max(0, Math.round(l * (1 - d/100)));
+  return isFinite(n) ? n : 0;
+}
+
+/** ===== Finans (KPI) hesapları ===== */
+function occupancyOf(villaName){
+  const weeks = STATE[villaName];
+  let sold = 0, revenue = 0, listSum=0, kdvs=0, kar=0, gv=0;
+  for(const w of WEEKS){
+    const r = weeks[w];
+    if(r.status==="Satıldı"){
+      sold++;
+      revenue += (Number(r.net)||0);
+      listSum += (Number(r.list)||0);
+      kdvs   += (Number(r.net)||0) * KDV_ORAN;
+      const k = (Number(r.list)||0) * KAR_ORAN;
+      kar += k;
+      gv  += k * GV_ORAN;
+    }
+  }
+  return {
+    sold, total: WEEKS.length, occ: Math.round(sold/WEEKS.length*100),
+    revenue, listSum, kdvs, kar, gv
+  };
+}
+function globalKpi(){
+  let sold = 0, total = VILLAS.length*WEEKS.length;
+  let revenue=0, listSum=0, kdvs=0, kar=0, gv=0;
+  for(const v of VILLAS){
+    const r = occupancyOf(v.name);
+    sold   += r.sold;
+    revenue+= r.revenue;
+    listSum+= r.listSum;
+    kdvs   += r.kdvs;
+    kar    += r.kar;
+    gv     += r.gv;
+  }
+  const occ = Math.round(sold/total*100);
+  return { sold, total, occ, revenue, listSum, kdvs, kar, gv,
+           vergiTotal: kdvs + gv, netKar: kar - gv };
+}
+
+/** ===== Render Head ===== */
+function renderHead(){
+  const thead = document.getElementById("thead");
+  const cells = ['<th>Villa</th>'];
+  for(const w of WEEKS){
+    const label = MAINTENANCE.has(w) ? `${w} 🛠️` : w;
+    cells.push(`<th>${label}</th>`);
+  }
+  thead.innerHTML = `<tr>${cells.join("")}</tr>`;
+}
+
+/** ===== Drag hedef kontrol ===== */
+function allowDropTarget(villa, week){ return !MAINTENANCE.has(week); }
+
+/** ===== Render Body ===== */
+function renderBody(){
+  const tbody = document.getElementById("tbody");
+  const rowsHtml = [];
+  const villaFilter = FILTER.toLowerCase();
+
+  for(const v of VILLAS){
+    if (FILTER && !v.name.toLowerCase().includes(villaFilter)) continue;
+
+    const tds = [`<td>${v.name}</td>`];
+    for(const w of WEEKS){
+      const isMaint = MAINTENANCE.has(w);
+      const r = STATE[v.name][w] || emptyRow();
+      const classes = ["cell"];
+      if (isMaint) classes.push("maint");
+      if (r.status === "Satıldı") classes.push("sold");
+      const noteShort = r.note ? `<span class="note" title="${r.note.replaceAll('"','&quot;')}">📝 ${r.note}</span>` : "";
+      const priceShort = r.net>0 ? `<span class="note" title="Net: ${r.net.toLocaleString("tr-TR")} TL">₺ ${r.net.toLocaleString("tr-TR")}</span>` : "";
+      const canDrag = !isMaint;
+      tds.push(`
+        <td>
+          <span class="${classes.join(" ")}"
+                ${canDrag ? 'draggable="true"' : ''}
+                data-villa="${v.name}" data-week="${w}"
+                title="${v.name} — ${w}\nDurum: ${r.status}${r.customer?`\nMüşteri: ${r.customer}`:""}${r.net?`\nNet: ${r.net.toLocaleString("tr-TR")} TL`:""}">
+            ${r.status === "Satıldı" ? "Satıldı" : "Boş"}
+          </span>
+          ${priceShort || noteShort}
+        </td>
+      `);
+    }
+    rowsHtml.push(`<tr>${tds.join("")}</tr>`);
+  }
+  tbody.innerHTML = rowsHtml.join("");
+
+  // Click → modal
+  tbody.querySelectorAll("span.cell").forEach(el=>{
+    el.addEventListener("click", (ev) => {
+      if (el.classList.contains('dragSrc')) return;
+      openEditor(el.getAttribute("data-villa"), el.getAttribute("data-week"));
+    });
+
+    // Drag&Drop
+    el.addEventListener("dragstart", (e)=>{
+      el.classList.add('dragSrc');
+      e.dataTransfer.setData("text/plain", JSON.stringify({
+        villa: el.getAttribute("data-villa"),
+        week:  el.getAttribute("data-week")
+      }));
+      e.dataTransfer.effectAllowed = "copyMove";
+    });
+    el.addEventListener("dragend", ()=> el.classList.remove('dragSrc'));
+
+    el.addEventListener("dragover", (e)=>{
+      const toVilla = el.getAttribute("data-villa");
+      const toWeek  = el.getAttribute("data-week");
+      if (allowDropTarget(toVilla, toWeek)) {
+        e.preventDefault();
+        el.classList.add("dropOk");
+        e.dataTransfer.dropEffect = (e.altKey ? "move" : "copy");
+      }
+    });
+    el.addEventListener("dragleave", ()=> el.classList.remove("dropOk"));
+
+    el.addEventListener("drop", (e)=>{
+      e.preventDefault();
+      el.classList.remove("dropOk");
+      const toVilla = el.getAttribute("data-villa");
+      const toWeek  = el.getAttribute("data-week");
+      if (!allowDropTarget(toVilla, toWeek)) return;
+
+      const data = JSON.parse(e.dataTransfer.getData("text/plain") || "{}");
+      const fromVilla = data.villa, fromWeek = data.week;
+      if (!fromVilla || !fromWeek) return;
+
+      const src = STATE[fromVilla][fromWeek];
+      STATE[toVilla][toWeek] = JSON.parse(JSON.stringify(src));
+      if (e.altKey) STATE[fromVilla][fromWeek] = emptyRow();
+
+      scheduleSave();
+      renderAll();
+    });
+  });
+}
+
+/** ===== KPIs ===== */
+function renderKpis(){
+  const k = globalKpi();
+  const box = (cap, val, tip="")=>`<div class="kpi" title="${tip}"><div class="cap">${cap}</div><div class="val">${val}</div></div>`;
+  const fmt = n=> Number(n||0).toLocaleString("tr-TR");
+
+  // Üst (genel) kutular
+  const general = [
+    box("Genel Doluluk", `%${k.occ}`, "Satılan hafta sayısı / toplam hafta"),
+    box("Toplam Ciro", `${fmt(k.revenue)} TL`, "Net tutar toplamı (indirim sonrası)"),
+    box(`Kâr (%${Math.round(KAR_ORAN*100)})`, `${fmt(k.kar)} TL`, "Kâr = Liste × %60 (satılanlar)"),
+    box(`Vergi (KDV %18 + GV %20)`, `${fmt(k.vergiTotal)} TL`, "KDV = Net × %18; GV = Kâr × %20"),
+    box("Net Kâr", `${fmt(k.netKar)} TL`, "Net Kâr = Kâr − Gelir Vergisi (KDV hariç)")
+  ];
+  document.getElementById("kpis").innerHTML = general.join("");
+
+  // Villa bazlı kutucuklar
+  const vk = VILLAS.map(v=>{
+    const r = occupancyOf(v.name);
+    return `<div class="vk" title="${v.name} doluluk ve ciro">
+              <div class="cap">${v.name}</div>
+              <div class="val">%${r.occ} • ${fmt(r.revenue)} TL</div>
+            </div>`;
+  }).join("");
+  document.getElementById("villaKpis").innerHTML = vk;
+}
+
+/** ===== CSV Export ===== */
+function exportCSV(){
+  const rows = [["Villa","Hafta","Durum","Bakım","ListeFiyatı","İndirim%","NetTutar","Müşteri","Telefon","Not","Peşinat%","TaksitAy","Ödenen"]];
+  for(const v of VILLAS){
+    for(const w of WEEKS){
+      const r = STATE[v.name][w] || emptyRow();
+      rows.push([
+        v.name, w, r.status, MAINTENANCE.has(w)?"Evet":"Hayır",
+        Number(r.list||0), Number(r.disc||0), Number(r.net||0),
+        r.customer||"", r.phone||"", r.note||"",
+        r.payment?.downPct ?? 50, r.payment?.inst ?? 12, r.payment?.paid ?? 0
+      ]);
+    }
+  }
+  const csv = rows.map(r => r.map(val => `"${String(val).replaceAll('"','""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "norant_devremulk_satis.csv";
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+/** ===== Yedek / Geri yükle ===== */
+function backupJSON(){
+  const blob = new Blob([JSON.stringify(STATE, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "norant_satis_yedek.json";
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+function restoreJSON(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(String(reader.result));
+      STATE = migrateIfNeeded(data);
+      scheduleSave();
+      renderAll();
+      alert("Yedek geri yüklendi.");
+    } catch(e){ alert("Geçersiz dosya"); }
+  };
+  reader.readAsText(file);
+}
+
+/** ===== Reset ===== */
+function resetAll(){
+  if(!confirm("Tüm satış verileri sıfırlansın mı?")) return;
+  STATE = buildEmptyState(); scheduleSave(); renderAll();
+}
+
+/** ===== Modal (Editör) ===== */
+const dlg = document.getElementById("editDlg");
+const fStatus   = document.getElementById("fStatus");
+const fCustomer = document.getElementById("fCustomer");
+const fPhone    = document.getElementById("fPhone");
+const fList     = document.getElementById("fList");
+const fDisc     = document.getElementById("fDisc");
+const fNet      = document.getElementById("fNet");
+const fNote     = document.getElementById("fNote");
+const dlgTitle  = document.getElementById("dlgTitle");
+/* Ödeme alanları */
+const pDownPct  = document.getElementById("pDownPct");
+const pInst     = document.getElementById("pInst");
+const pDownAmt  = document.getElementById("pDownAmt");
+const pMonthly  = document.getElementById("pMonthly");
+const pPaid     = document.getElementById("pPaid");
+const pRemain   = document.getElementById("pRemain");
+const pStatus   = document.getElementById("pStatus");
+/* Tabs */
+const tabs = document.querySelectorAll(".tab");
+const tabSale = document.getElementById("tab-sale");
+const tabPay  = document.getElementById("tab-pay");
+
+let curVilla=null, curWeek=null;
+
+function setTab(which){
+  tabs.forEach(t=>t.classList.toggle("active", t.dataset.tab===which));
+  tabSale.classList.toggle("active", which==="sale");
+  tabPay.classList.toggle("active", which==="pay");
+}
+tabs.forEach(t=> t.onclick=()=> setTab(t.dataset.tab));
+
+function openEditor(villa, week){
+  curVilla = villa; curWeek = week;
+  const isMaint = MAINTENANCE.has(week);
+  const r = STATE[villa][week] || emptyRow();
+
+  dlgTitle.textContent = `${villa} — ${week}${isMaint?" (Bakım • kilitli)":""}`;
+
+  fStatus.value = r.status;
+  fCustomer.value = r.customer || "";
+  fPhone.value = r.phone || "";
+  fList.value = Number(r.list||0);
+  fDisc.value = Number(r.disc||0);
+  fNet.value  = Number(calcNet(fList.value, fDisc.value));
+  fNote.value = r.note || "";
+
+  // payment
+  pDownPct.value = r.payment?.downPct ?? 50;
+  pInst.value    = r.payment?.inst ?? 12;
+  pPaid.value    = r.payment?.paid ?? 0;
+  recomputePayment();
+
+  fStatus.disabled = isMaint; // bakımda satılamaz
+  setTab("sale");
+  dlg.showModal();
+}
+
+document.getElementById("dlgCancel").addEventListener("click", ()=> dlg.close());
+document.getElementById("dlgSave").addEventListener("click", ()=>{
+  if(curVilla==null) return;
+  const isMaint = MAINTENANCE.has(curWeek);
+
+  const list = Number(fList.value || 0);
+  const disc = Number(fDisc.value || 0);
+  const net  = calcNet(list, disc);
+
+  let status = fStatus.value;
+  if(isMaint) status = "Boş"; // kilit
+
+  const pay = {
+    downPct: Number(pDownPct.value||0),
+    inst:    Number(pInst.value||0),
+    paid:    Number(pPaid.value||0)
+  };
+
+  STATE[curVilla][curWeek] = {
+    status,
+    list,
+    disc,
+    net,
+    customer: fCustomer.value || "",
+    phone: fPhone.value || "",
+    note: fNote.value || "",
+    payment: pay
+  };
+  scheduleSave(); renderAll(); dlg.close();
+});
+
+// Net otomatik
+[fList, fDisc].forEach(inp=>{
+  inp.addEventListener("input", ()=>{
+    const list = Number(fList.value||0);
+    const disc = Number(fDisc.value||0);
+    fNet.value = calcNet(list, disc);
+    recomputePayment();
+  });
+});
+
+// Ödeme yeniden hesap
+[pDownPct, pInst, pPaid].forEach(inp=> inp.addEventListener("input", recomputePayment));
+function recomputePayment(){
+  const net = Number(fNet.value||0);
+  const downPct = Number(pDownPct.value||0);
+  const inst = Math.max(0, parseInt(pInst.value||0,10));
+  const downAmt = Math.round(net * (downPct/100));
+  const remainBase = Math.max(0, net - downAmt);
+  const monthly = inst>0 ? Math.round(remainBase / inst) : 0;
+  const paid = Number(pPaid.value||0);
+  const remain = Math.max(0, net - paid);
+  pDownAmt.value = downAmt;
+  pMonthly.value = monthly;
+  pRemain.value  = remain;
+  pStatus.value  = remain===0 && net>0 ? "Tamamlandı" : "Devam Ediyor";
+}
+
+/** ===== Arama (liste + git) ===== */
+const resultsBox = document.getElementById("results");
+const resCount   = document.getElementById("resCount");
+const resList    = document.getElementById("resList");
+document.getElementById("search").addEventListener("input", (e)=>{
+  const q = (e.target.value || "").trim().toLowerCase();
+  if (!q){ resultsBox.style.display = "none"; return; }
+  const matches = [];
+  for(const v of VILLAS){
+    for(const w of WEEKS){
+      const r = STATE[v.name][w] || emptyRow();
+      const hay = [
+        v.name.toLowerCase(),
+        w.toLowerCase(),
+        (r.customer||"").toLowerCase(),
+        (r.phone||"").toLowerCase(),
+        (r.note||"").toLowerCase(),
+        r.status.toLowerCase()
+      ].join(" | ");
+      if (hay.includes(q)){
+        matches.push({ villa: v.name, week: w, r });
+      }
+    }
+  }
+  resCount.textContent = `${matches.length} sonuç`;
+  resList.innerHTML = matches.slice(0,200).map(m => `
+    <div class="resItem">
+      <div>
+        <div><b>${m.villa}</b> • ${m.week} ${MAINTENANCE.has(m.week) ? '🛠️' : ''}</div>
+        <div class="resMeta">Durum: ${m.r.status}${m.r.customer?` • Müşteri: ${m.r.customer}`:''}${m.r.net?` • Net: ₺${Number(m.r.net).toLocaleString("tr-TR")}`:''}</div>
+      </div>
+      <button class="goBtn" data-v="${m.villa}" data-w="${m.week}">Git</button>
+    </div>
+  `).join("");
+  resultsBox.style.display = "";
+  resList.querySelectorAll("button.goBtn").forEach(b=>{
+    b.onclick = ()=>{
+      const v = b.getAttribute("data-v");
+      const w = b.getAttribute("data-w");
+      const cell = document.querySelector(`span.cell[data-villa="${CSS.escape(v)}"][data-week="${CSS.escape(w)}"]`);
+      if(cell){
+        cell.scrollIntoView({behavior:"smooth", block:"center", inline:"center"});
+        cell.classList.add("flash");
+        setTimeout(()=>cell.classList.remove("flash"), 1600);
+      }
+    };
+  });
+});
+
+/** ===== Boot ===== */
+function renderAll(){ renderHead(); renderBody(); renderKpis(); attachContextMenu(); }
+load(); renderAll();
+markSaved();
+
+document.getElementById("exportCsv").addEventListener("click", exportCSV);
+document.getElementById("backupJson").addEventListener("click", backupJSON);
+document.getElementById("restoreJson").addEventListener("change", (e)=> {
+  const f = e.target.files?.[0]; if(f) restoreJSON(f);
+});
+document.getElementById("resetAll").addEventListener("click", resetAll);
+
+/** ===== Sağ tık menüsü (Geniş) ===== */
+let copiedPayload = null, activeCell=null;
+const ctx = document.getElementById("ctx");
+function ctxHide(){ ctx.style.display="none"; }
+function ctxShow(x,y){ ctx.style.left=x+"px"; ctx.style.top=y+"px"; ctx.style.display="block"; }
+function attachContextMenu(){
+  ctx.innerHTML = "";
+  const add=(icon,text,act)=>{ const d=document.createElement("div"); d.className="i"; d.dataset.act=act; d.textContent=`${icon} ${text}`; ctx.appendChild(d); };
+  add("🗑️","Satışı Sil","delete");
+  add("📋","Kopyala","copy");
+  add("📦","Yapıştır","paste");
+  add("🔁","Taşı","move");
+
+  document.querySelectorAll("span.cell").forEach(c=>{
+    c.oncontextmenu=(e)=>{
+      e.preventDefault();
+      const v=c.dataset.villa, w=c.dataset.week;
+      if(MAINTENANCE.has(w)) return;
+      activeCell=c; ctxShow(e.pageX,e.pageY);
+    };
+    let t;
+    c.ontouchstart=()=>t=setTimeout(()=>{c.dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,cancelable:true}));},600);
+    c.ontouchend=()=>clearTimeout(t);
+  });
+}
+document.addEventListener("click", (e)=>{ if(!ctx.contains(e.target)) ctxHide(); });
+document.addEventListener("scroll", ctxHide);
+ctx.addEventListener("click", (e)=>{
+  const act = e.target.dataset.act;
+  if(!act || !activeCell) return;
+  const villa=activeCell.dataset.villa, week=activeCell.dataset.week;
+  const r = STATE[villa][week];
+
+  if(act==="delete"){
+    STATE[villa][week]=emptyRow();
+  }
+  if(act==="copy"){
+    copiedPayload = JSON.parse(JSON.stringify(r));
+  }
+  if(act==="paste" && copiedPayload){
+    STATE[villa][week]=JSON.parse(JSON.stringify(copiedPayload));
+  }
+  if(act==="move" && copiedPayload){
+    STATE[villa][week]=JSON.parse(JSON.stringify(copiedPayload));
+    // Güvenli olması için kaynağı otomatik boşaltmıyoruz; Alt+drag ile taşı önerilir.
+  }
+  scheduleSave(); renderAll(); ctxHide();
+});
+</script>
+</body>
+</html>
